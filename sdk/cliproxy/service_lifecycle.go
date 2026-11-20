@@ -236,6 +236,9 @@ func (s *Service) Run(ctx context.Context) error {
 	s.registerModelRefreshCallback()
 	if !homeEnabled {
 		go s.runAntigravityModelRefresh(ctx)
+		quotaCtx, cancelQuota := context.WithCancel(ctx)
+		defer cancelQuota()
+		go s.runAntigravityFiveHourRefresh(quotaCtx)
 	}
 
 	select {

@@ -75,8 +75,8 @@ func normalizedRoutingRuntimeState(cfg *config.Config) routingRuntimeState {
 	}
 
 	switch strings.ToLower(strings.TrimSpace(cfg.Routing.Strategy)) {
-	case "codex-five-hour":
-		state.strategy = "codex-five-hour"
+	case "five-hour", "codex-five-hour":
+		state.strategy = "five-hour"
 	case "weighted-round-robin", "weightedroundrobin", "wrr":
 		state.strategy = "weighted-round-robin"
 	case "fill-first", "fillfirst", "ff":
@@ -112,8 +112,8 @@ func newRoutingSelector(state routingRuntimeState) coreauth.Selector {
 func newRoutingSelectorWithExisting(state routingRuntimeState, existing coreauth.Selector) coreauth.Selector {
 	var selector coreauth.Selector
 	switch state.strategy {
-	case "codex-five-hour":
-		selector = &coreauth.CodexFiveHourSelector{}
+	case "five-hour":
+		selector = &coreauth.FiveHourSelector{}
 	case "weighted-round-robin":
 		if existingWeighted := coreauth.UnwrapWeightedRoundRobinSelector(existing); existingWeighted != nil {
 			selector = existingWeighted

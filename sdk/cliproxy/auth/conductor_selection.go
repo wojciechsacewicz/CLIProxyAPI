@@ -986,7 +986,7 @@ func selectorContextForAvailableAuths(ctx context.Context, selector Selector, ro
 	ctx = withWeightedSelectorStateModel(ctx, selector, routeModel)
 	if !isBuiltInSelector(selector) {
 		switch selector.(type) {
-		case *SessionAffinitySelector, *CodexFiveHourSelector:
+		case *SessionAffinitySelector, *FiveHourSelector:
 		default:
 			return ctx
 		}
