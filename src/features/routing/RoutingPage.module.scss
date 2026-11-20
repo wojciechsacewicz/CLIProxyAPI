@@ -172,6 +172,17 @@ $label-x: $tier-pad + 1px + $index-size + 10px; // where tier names begin
   font-size: 13px;
 }
 
+.nextAccount {
+  color: var(--text-secondary);
+  font-size: 12px;
+  text-align: right;
+  overflow-wrap: anywhere;
+
+  strong {
+    color: var(--text-primary);
+  }
+}
+
 .modelProgress {
   font-family: $font-mono;
   font-size: 11px;

@@ -404,7 +404,17 @@ async function forEachWithConcurrency<T>(
   );
 }
 
+export interface FiveHourPreview {
+  reason: string;
+  account?: string;
+  provider?: string;
+  remaining_percent?: number;
+}
+
 export const routingApi = {
+  previewFiveHour: (model: string, signal: AbortSignal) =>
+    apiClient.get<FiveHourPreview>('/routing/preview', { params: { model }, signal }),
+
   /** The stored v8 configuration document, unnormalized. */
   getRawConfig: () => apiClient.get<unknown>('/config'),
 

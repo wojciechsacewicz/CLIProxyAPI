@@ -45,6 +45,7 @@ import {
   resolveRoute,
   stepMember,
 } from './logic';
+import { NextAccount } from './components/NextAccount';
 import { ChangeReviewDialog } from './components/ChangeReviewDialog';
 import { PolicyPanel } from './components/PolicyPanel';
 import { RoutingSaveBar } from './components/RoutingSaveBar';
@@ -320,6 +321,15 @@ export function RoutingPage() {
         className={styles.modelField}
         id="routing-model-preview"
       />
+      {isCurrentLayer &&
+      connected &&
+      !dirty &&
+      !loading &&
+      !error &&
+      board?.settings.strategy === 'five-hour' &&
+      selectedModel ? (
+        <NextAccount key={selectedModel} model={selectedModel} members={board.members} />
+      ) : null}
       {modelProgress ? (
         <span className={styles.modelProgress} role="status">
           {t('routing.models_loading', { done: modelProgress.done, total: modelProgress.total })}
