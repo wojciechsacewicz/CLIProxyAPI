@@ -55,16 +55,23 @@ func (s *FiveHourSelector) Pick(ctx context.Context, provider, model string, _ c
 		return available[0], nil
 	}
 
-	var best []*Auth
-	var bestRemaining float64
+	best, _, reason := s.rankAvailable(model, now, available)
+	if reason != "quota" {
+		return s.fallback.pickAvailable(provider, model, available), nil
+	}
+	return s.fallback.pickAvailable(provider, model, best), nil
+}
+
+// rankAvailable reads the same quota snapshots for live selection and management previews.
+func (s *FiveHourSelector) rankAvailable(model string, now time.Time, available []*Auth) (best []*Auth, bestRemaining float64, reason string) {
 	snapshot := s.antigravity.Load()
 	for _, candidate := range available {
 		if !strings.EqualFold(candidate.Provider, available[0].Provider) {
-			return s.fallback.pickAvailable(provider, model, available), nil
+			return nil, 0, "mixed-providers"
 		}
 		remaining, ok := fiveHourRemaining(candidate, model, now, snapshot)
 		if !ok {
-			return s.fallback.pickAvailable(provider, model, available), nil
+			return nil, 0, "quota-unavailable"
 		}
 		if len(best) == 0 || remaining > bestRemaining {
 			best = best[:0]
@@ -74,7 +81,7 @@ func (s *FiveHourSelector) Pick(ctx context.Context, provider, model string, _ c
 			best = append(best, candidate)
 		}
 	}
-	return s.fallback.pickAvailable(provider, model, best), nil
+	return best, bestRemaining, "quota"
 }
 
 func freshFiveHourObservation(observedAt, now time.Time) bool {
