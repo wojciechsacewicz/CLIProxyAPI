@@ -1702,6 +1702,8 @@
     "strategy_fill_first": "Fill first",
     "strategy_round_robin_desc": "Each credential in the tier takes requests in turn.",
     "strategy_weighted_round_robin_desc": "Requests are split across the tier by weight.",
+    "strategy_five_hour": "five-hour",
+    "strategy_five_hour_desc": "New sessions prefer the credential with the most 5-hour quota left. If comparable quota data is unavailable, requests use round-robin.",
     "strategy_fill_first_desc": "One credential takes everything until it is unavailable, then the next.",
     "affinity_label": "Session affinity",
     "affinity_desc": "Requests of one session stick to one credential, failing over when it becomes unavailable.",

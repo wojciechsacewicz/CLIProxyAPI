@@ -1702,6 +1702,8 @@
     "strategy_fill_first": "Önce doldur",
     "strategy_round_robin_desc": "Katmandaki her kimlik sırayla istek alır.",
     "strategy_weighted_round_robin_desc": "İstekler katman içinde ağırlığa göre bölünür.",
+    "strategy_five_hour": "five-hour",
+    "strategy_five_hour_desc": "Yeni oturumlar, 5 saatlik kotası en fazla kalan kimlik bilgisini tercih eder. Karşılaştırılabilir kota verileri yoksa sırayla seçim yapılır.",
     "strategy_fill_first_desc": "Bir kimlik kullanılamaz olana kadar her şeyi alır, sonra sıradakine geçilir.",
     "affinity_label": "Oturum bağlılığı",
     "affinity_desc": "Bir oturumun istekleri aynı kimliğe gider; kullanılamazsa otomatik olarak devredilir.",

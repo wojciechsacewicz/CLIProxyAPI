@@ -141,12 +141,23 @@ describe('routing board rendering', () => {
     expect(card).toContain("const muted = state === 'disabled' || state === 'ineligible';");
   });
 
-  test('the strategy picker is a keyboard radio group', async () => {
+  test.each([
+    [
+      'weighted-round-robin',
+      'Weighted round-robin',
+      'Requests are split across the tier by weight.',
+    ],
+    [
+      'five-hour',
+      'five-hour',
+      'New sessions prefer the credential with the most 5-hour quota left.',
+    ],
+  ] as const)('selects %s in the keyboard radio group', async (strategy, label, description) => {
     await i18n.changeLanguage('en');
     const html = renderToStaticMarkup(
       createElement(PolicyPanel, {
         settings: {
-          strategy: 'weighted-round-robin',
+          strategy,
           sessionAffinity: false,
           requestRetry: 3,
           maxRetryCredentials: 0,
@@ -155,8 +166,9 @@ describe('routing board rendering', () => {
       })
     );
     expect(html).toContain('role="radiogroup"');
-    expect(html).toMatch(/role="radio" aria-checked="true" tabindex="0"[^>]*>.*Weighted/);
-    expect(html).toContain('Requests are split across the tier by weight.');
+    const selected = html.match(/role="radio" aria-checked="true" tabindex="0"[^>]*>.*?<\/button>/);
+    expect(selected?.[0]).toContain(label);
+    expect(html).toContain(description);
   });
 
   test('policy explanations sit in InfoTips after their labels, controls stay described', async () => {

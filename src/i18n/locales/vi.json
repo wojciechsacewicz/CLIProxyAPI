@@ -1658,6 +1658,8 @@
     "strategy_fill_first": "Lấp đầy trước",
     "strategy_round_robin_desc": "Mỗi thông tin xác thực trong tầng lần lượt nhận yêu cầu.",
     "strategy_weighted_round_robin_desc": "Yêu cầu được chia trong tầng theo trọng số.",
+    "strategy_five_hour": "five-hour",
+    "strategy_five_hour_desc": "Phiên mới ưu tiên thông tin xác thực còn nhiều hạn mức 5 giờ nhất. Nếu không có dữ liệu hạn mức để so sánh, yêu cầu được phân phối luân phiên.",
     "strategy_fill_first_desc": "Một thông tin xác thực nhận hết cho đến khi không khả dụng, rồi đến cái tiếp theo.",
     "affinity_label": "Gắn phiên",
     "affinity_desc": "Yêu cầu của cùng một phiên đi tới cùng một thông tin xác thực, tự chuyển khi nó không khả dụng.",

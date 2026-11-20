@@ -388,10 +388,15 @@ describe('route preview', () => {
     expect(loading.tiers[0].members[0].state).toBe('unknown');
   });
 
-  test('fill-first has no fixed split', () => {
+  test.each(['five-hour', 'codex-five-hour'])('reads %s as five-hour', (rawStrategy) => {
+    const current = buildRoutingBoard({ routing: { strategy: rawStrategy } }, []);
+    expect(current.settings.strategy).toBe('five-hour');
+  });
+
+  test.each(['fill-first', 'five-hour'] as const)('%s has no fixed split', (strategy) => {
     const current = board();
     const draft = draftFromBoard(current);
-    draft.settings = { ...draft.settings, strategy: 'fill-first' };
+    draft.settings = { ...draft.settings, strategy };
     const preview = resolveRoute(current, draft, catalog, null, 0);
     expect(preview.tiers[0].state).toBe('active');
     expect(preview.tiers[0].members[0].share).toBeNull();

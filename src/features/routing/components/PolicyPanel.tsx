@@ -18,7 +18,14 @@ export interface PolicyPanelProps {
 }
 
 function StrategyMark({ strategy }: { strategy: RoutingStrategy }) {
-  // Three dots: even (round-robin), graded (weighted), first one filled (fill-first).
+  if (strategy === 'five-hour') {
+    return (
+      <svg width="18" height="14" viewBox="0 0 18 14" aria-hidden="true" focusable="false">
+        <circle cx="9" cy="7" r="5.5" fill="none" stroke="currentColor" />
+        <path d="M9 3.5V7l2.5 1.5" fill="none" stroke="currentColor" strokeLinecap="round" />
+      </svg>
+    );
+  }
   const opacities =
     strategy === 'round-robin'
       ? [1, 1, 1]
