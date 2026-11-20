@@ -18,7 +18,7 @@ const i18n = createInstance();
 await i18n.init({ lng: 'en', resources: { en: { translation: en } } });
 
 describe('Devin OAuth login UI', () => {
-  test('renders a gallery tile and a dialog with version and expiry guidance', () => {
+  test('hides the gallery tile and preserves the dialog with version and expiry guidance', () => {
     const page = renderToStaticMarkup(
       createElement(
         I18nextProvider,
@@ -26,7 +26,7 @@ describe('Devin OAuth login UI', () => {
         createElement(MemoryRouter, null, createElement(OAuthPage))
       )
     );
-    expect(page).toContain('Devin');
+    expect(page).not.toContain('Devin');
     expect(page).not.toContain('auth_login.');
 
     const devin = OAUTH_PROVIDERS.find((provider) => provider.id === 'devin');

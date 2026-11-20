@@ -57,13 +57,20 @@ import {
   countCodexCreditOverageKeys,
 } from './providers/codex/creditOverage';
 import type { QuotaProviderType } from './providers/types';
-import { useDevinQuotaAutoLoad } from './providers/devin/useDevinQuotaAutoLoad';
 import { useQuotaActions } from './hooks/useQuotaActions';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import { readQuotaUiState, writeQuotaUiState } from './uiState';
 import styles from './QuotaPage.module.scss';
 
-const TAB_IDS: string[] = ['all', ...QUOTA_TAB_ORDER];
+const VISIBLE_QUOTA_PROVIDERS = new Set<QuotaProviderType>([
+  'claude',
+  'antigravity',
+  'codex',
+  'xai',
+  'plugin',
+]);
+const VISIBLE_QUOTA_ORDER = QUOTA_TAB_ORDER.filter((type) => VISIBLE_QUOTA_PROVIDERS.has(type));
+const TAB_IDS: QuotaTabId[] = ['all', ...VISIBLE_QUOTA_ORDER];
 const SKELETON_CARD_COUNT = 6;
 
 /**
@@ -80,7 +87,10 @@ export function QuotaPage() {
   const [files, setFiles] = useState<AuthFileItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState<QuotaTabId>(() => readQuotaUiState()?.tab ?? 'all');
+  const [tab, setTab] = useState<QuotaTabId>(() => {
+    const saved = readQuotaUiState()?.tab ?? 'all';
+    return TAB_IDS.includes(saved) ? saved : 'all';
+  });
   const [sortMode, setSortMode] = useState<QuotaSortMode>(
     () => readQuotaUiState()?.sortMode ?? 'default'
   );
@@ -185,7 +195,10 @@ export function QuotaPage() {
   const tick = useNow(sortMode !== 'default');
   const sortNow = sortMode === 'default' ? 0 : tick;
 
-  const entries = useMemo(() => classifyQuotaFiles(files), [files]);
+  const entries = useMemo(
+    () => classifyQuotaFiles(files).filter(({ type }) => VISIBLE_QUOTA_PROVIDERS.has(type)),
+    [files]
+  );
   const tabCounts = useMemo(() => buildTabCounts(entries), [entries]);
   // Account-level settings span every page and tab, so count over all entries.
   const codexCreditOverageCounts = useMemo(
@@ -265,11 +278,11 @@ export function QuotaPage() {
   useEffect(() => {
     if (loading || error || filesGeneration !== sessionGeneration) return;
     const survivorsByType = new Map<QuotaProviderType, Set<string>>(
-      QUOTA_TAB_ORDER.map((type) => [type, new Set<string>()])
+      VISIBLE_QUOTA_ORDER.map((type) => [type, new Set<string>()])
     );
     entries.forEach((entry) => survivorsByType.get(entry.type)?.add(getQuotaCacheKey(entry.file)));
 
-    QUOTA_TAB_ORDER.forEach((type) => {
+    VISIBLE_QUOTA_ORDER.forEach((type) => {
       const survivors = survivorsByType.get(type) ?? new Set<string>();
       const setQuota = getQuotaSetter(QUOTA_ADAPTERS[type]);
       setQuota((prev) => {
@@ -322,16 +335,6 @@ export function QuotaPage() {
       void loadQuota(pageItems);
     }
   }, [disableControls, error, filesGeneration, loading, loadQuota, pageItems, sessionGeneration]);
-
-  useDevinQuotaAutoLoad(
-    pageItems,
-    disableControls ||
-      loading ||
-      batchLoading ||
-      Boolean(error) ||
-      filesGeneration !== sessionGeneration,
-    loadQuota
-  );
 
   const canUseActions = !disableControls && !loading && filesGeneration === sessionGeneration;
 
