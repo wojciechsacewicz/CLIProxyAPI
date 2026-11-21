@@ -52,8 +52,15 @@ func TestPreviewFiveHourTracksAvailableQuotaWithoutMovingCursor(t *testing.T) {
 
 	b.Quota.ObservedAt = now.Add(-time.Hour)
 	update(b)
-	if got := preview(); got.Reason != "quota-unavailable" {
-		t.Fatalf("expected stale quota to prevent a prediction, got %+v", got)
+	if got := preview(); got.Reason != "quota" || got.Account != a.FileName {
+		t.Fatalf("expected an account with fresh quota to rank ahead of stale quota, got %+v", got)
+	}
+
+	b.Quota = fiveHourAuth(b.ID, 25, now).Quota
+	b.Quota.Signals["X-Codex-Primary-Window-Minutes"] = "10080"
+	update(b)
+	if got := preview(); got.Account != b.FileName || got.Remaining != nil || got.RankingPercent == nil || *got.RankingPercent != 75 {
+		t.Fatalf("expected weekly-only b with a 75%% ranking score and no five-hour quota, got %+v", got)
 	}
 
 	b.Disabled = true

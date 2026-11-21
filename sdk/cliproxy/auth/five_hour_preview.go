@@ -9,10 +9,11 @@ import (
 )
 
 type FiveHourPreview struct {
-	Reason    string   `json:"reason"`
-	Account   string   `json:"account,omitempty"`
-	Provider  string   `json:"provider,omitempty"`
-	Remaining *float64 `json:"remaining_percent,omitempty"`
+	Reason         string   `json:"reason"`
+	Account        string   `json:"account,omitempty"`
+	Provider       string   `json:"provider,omitempty"`
+	Remaining      *float64 `json:"remaining_percent,omitempty"` // Five-hour quota, when known.
+	RankingPercent *float64 `json:"ranking_percent,omitempty"`
 }
 
 // PreviewFiveHour predicts an unpinned request without invoking a scheduler, advancing its cursor,
@@ -52,7 +53,7 @@ func (m *Manager) PreviewFiveHour(ctx context.Context, providers []string, model
 		return FiveHourPreview{Reason: "unavailable"}
 	}
 	best := available
-	var remaining *float64
+	var remaining, rankingPercent *float64
 	reason := "only-account"
 	if len(available) > 1 {
 		var percent float64
@@ -63,12 +64,15 @@ func (m *Manager) PreviewFiveHour(ctx context.Context, providers []string, model
 		if len(best) != 1 {
 			return FiveHourPreview{Reason: "tie"}
 		}
-		remaining = &percent
+		rankingPercent = &percent
+		if short, ok := fiveHourRemaining(best[0], model, now, selector.antigravity.Load()); ok {
+			remaining = &short
+		}
 	}
 	chosen := best[0]
 	account := chosen.EnsureIndex()
 	if chosen.FileName != "" {
 		account = filepath.Base(chosen.FileName)
 	}
-	return FiveHourPreview{Reason: reason, Account: account, Provider: chosen.Provider, Remaining: remaining}
+	return FiveHourPreview{Reason: reason, Account: account, Provider: chosen.Provider, Remaining: remaining, RankingPercent: rankingPercent}
 }

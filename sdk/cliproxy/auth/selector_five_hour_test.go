@@ -41,23 +41,30 @@ func TestCodexFiveHourRoutingKeepsExistingSession(t *testing.T) {
 	pick("after-quota-change", "a")
 }
 
-func TestCodexFiveHourRoutingFallsBackWhenQuotaIsUnknown(t *testing.T) {
+func TestCodexFiveHourRoutingWithMissingQuota(t *testing.T) {
 	now := time.Now()
 	for _, tc := range []struct {
 		name   string
-		change func(*Auth)
+		change func(*Auth, *Auth)
+		want   []string
 	}{
-		{"weekly only", func(a *Auth) { a.Quota.Signals["X-Codex-Primary-Window-Minutes"] = "10080" }},
-		{"stale", func(a *Auth) { a.Quota.ObservedAt = now.Add(-11 * time.Minute) }},
-		{"reset", func(a *Auth) { a.Quota.Signals["X-Codex-Primary-Reset-At"] = strconv.FormatInt(now.Unix(), 10) }},
-		{"invalid", func(a *Auth) { a.Quota.Signals["X-Codex-Primary-Used-Percent"] = "NaN" }},
-		{"different provider", func(a *Auth) { a.Provider = "claude" }},
+		{"weekly only beats constrained account", func(a, b *Auth) {
+			a.Quota.Signals["X-Codex-Primary-Window-Minutes"] = "10080"
+			b.Quota.Signals["X-Codex-Secondary-Window-Minutes"] = "10080"
+			b.Quota.Signals["X-Codex-Secondary-Used-Percent"] = "95"
+			b.Quota.Signals["X-Codex-Secondary-Reset-At"] = strconv.FormatInt(now.Add(time.Hour).Unix(), 10)
+		}, []string{"a", "a"}},
+		{"stale", func(a, _ *Auth) { a.Quota.ObservedAt = now.Add(-11 * time.Minute) }, []string{"b", "b"}},
+		{"reset", func(a, _ *Auth) { a.Quota.Signals["X-Codex-Primary-Reset-At"] = strconv.FormatInt(now.Unix(), 10) }, []string{"b", "b"}},
+		{"invalid", func(a, _ *Auth) { a.Quota.Signals["X-Codex-Primary-Used-Percent"] = "NaN" }, []string{"b", "b"}},
+		{"all unknown", func(a, b *Auth) { a.Quota, b.Quota = QuotaState{}, QuotaState{} }, []string{"a", "b", "a"}},
+		{"different providers", func(a, _ *Auth) { a.Provider = "claude" }, []string{"a", "b", "a"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			a, b := fiveHourAuth("a", 80, now), fiveHourAuth("b", 10, now)
-			tc.change(a)
+			tc.change(a, b)
 			selector := &FiveHourSelector{}
-			for _, want := range []string{"a", "b", "a"} {
+			for _, want := range tc.want {
 				got, err := selector.Pick(t.Context(), "mixed", "gpt-6.2-sol", cliproxyexecutor.Options{}, []*Auth{a, b})
 				if err != nil || got.ID != want {
 					t.Fatalf("wanted %s, got %v (%v)", want, got, err)
@@ -106,20 +113,27 @@ func TestCodexFiveHourRemainingReadsSecondaryWindow(t *testing.T) {
 
 func TestFiveHourRoutingRanksClaudeUtilization(t *testing.T) {
 	now := time.Now()
-	candidate := func(id, used string) *Auth {
+	candidate := func(id, shortUsed, weeklyUsed string) *Auth {
 		a := &Auth{ID: id, Provider: "claude"}
 		h := make(http.Header)
-		h.Set("Anthropic-Ratelimit-Unified-5h-Utilization", used)
+		h.Set("Anthropic-Ratelimit-Unified-5h-Utilization", shortUsed)
 		h.Set("Anthropic-Ratelimit-Unified-5h-Reset", strconv.FormatInt(now.Add(time.Hour).Unix(), 10))
+		h.Set("Anthropic-Ratelimit-Unified-7d-Utilization", weeklyUsed)
+		h.Set("Anthropic-Ratelimit-Unified-7d-Reset", strconv.FormatInt(now.AddDate(0, 0, 6).Unix(), 10))
 		a.Quota.ObserveResponseHeadersForProvider("claude", h, now)
 		return a
 	}
-	pool := []*Auth{candidate("a", "0.8"), candidate("b", "0.1")}
+	pool := []*Auth{
+		candidate("a", "0.125", "0.875"),
+		candidate("b", "", "0.5"),
+		candidate("c", "0.75", "0.125"),
+		{ID: "d", Provider: "claude"},
+	}
 	selector := &FiveHourSelector{}
 	for range 2 {
 		got, err := selector.Pick(t.Context(), "mixed", "claude-opus-5-5", cliproxyexecutor.Options{}, pool)
 		if err != nil || got.ID != "b" {
-			t.Fatalf("expected b with 90 percent remaining, got %v (%v)", got, err)
+			t.Fatalf("expected weekly-only b with the best remaining quota, got %v (%v)", got, err)
 		}
 	}
 }

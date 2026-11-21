@@ -25,7 +25,7 @@ type AntigravityFiveHourQuota struct {
 	Windows    map[string]FiveHourWindow
 }
 
-// FiveHourSelector ranks eligible accounts of the same provider by remaining five-hour quota.
+// FiveHourSelector ranks eligible accounts of the same provider by their tightest known quota.
 type FiveHourSelector struct {
 	fallback    RoundRobinSelector
 	antigravity atomic.Pointer[map[string]AntigravityFiveHourQuota]
@@ -69,9 +69,9 @@ func (s *FiveHourSelector) rankAvailable(model string, now time.Time, available 
 		if !strings.EqualFold(candidate.Provider, available[0].Provider) {
 			return nil, 0, "mixed-providers"
 		}
-		remaining, ok := fiveHourRemaining(candidate, model, now, snapshot)
+		remaining, ok := quotaRankingPercent(candidate, model, now, snapshot)
 		if !ok {
-			return nil, 0, "quota-unavailable"
+			continue
 		}
 		if len(best) == 0 || remaining > bestRemaining {
 			best = best[:0]
@@ -81,7 +81,37 @@ func (s *FiveHourSelector) rankAvailable(model string, now time.Time, available 
 			best = append(best, candidate)
 		}
 	}
+	if len(best) == 0 {
+		return nil, 0, "quota-unavailable"
+	}
 	return best, bestRemaining, "quota"
+}
+
+func quotaRankingPercent(auth *Auth, model string, now time.Time, snapshot *map[string]AntigravityFiveHourQuota) (float64, bool) {
+	short, hasShort := fiveHourRemaining(auth, model, now, snapshot)
+	weekly, hasWeekly := weeklyQuotaRemaining(auth, now)
+	switch {
+	case hasShort && hasWeekly:
+		return min(short, weekly), true
+	case hasShort:
+		return short, true
+	default:
+		return weekly, hasWeekly
+	}
+}
+
+func weeklyQuotaRemaining(auth *Auth, now time.Time) (float64, bool) {
+	if !freshFiveHourObservation(auth.Quota.ObservedAt, now) {
+		return 0, false
+	}
+	switch strings.ToLower(auth.Provider) {
+	case "codex":
+		return codexWindowRemaining(auth, "10080", now)
+	case "claude":
+		return quotaRemainingFromUsed(auth.Quota.Signals, "Anthropic-Ratelimit-Unified-7d-Utilization", "Anthropic-Ratelimit-Unified-7d-Reset", 1, now)
+	default:
+		return 0, false
+	}
 }
 
 func freshFiveHourObservation(observedAt, now time.Time) bool {
@@ -107,7 +137,7 @@ func fiveHourRemaining(auth *Auth, model string, now time.Time, snapshot *map[st
 		if !freshFiveHourObservation(auth.Quota.ObservedAt, now) {
 			return 0, false
 		}
-		return fiveHourFromUsed(auth.Quota.Signals, "Anthropic-Ratelimit-Unified-5h-Utilization", "Anthropic-Ratelimit-Unified-5h-Reset", 1, now)
+		return quotaRemainingFromUsed(auth.Quota.Signals, "Anthropic-Ratelimit-Unified-5h-Utilization", "Anthropic-Ratelimit-Unified-5h-Reset", 1, now)
 	default:
 		return 0, false
 	}
@@ -117,9 +147,13 @@ func codexFiveHourRemaining(auth *Auth, now time.Time) (float64, bool) {
 	if !freshFiveHourObservation(auth.Quota.ObservedAt, now) {
 		return 0, false
 	}
+	return codexWindowRemaining(auth, "300", now)
+}
+
+func codexWindowRemaining(auth *Auth, minutes string, now time.Time) (float64, bool) {
 	for _, window := range [...]string{"X-Codex-Primary-", "X-Codex-Secondary-"} {
-		if auth.Quota.Signals[window+"Window-Minutes"] == "300" {
-			if remaining, ok := fiveHourFromUsed(auth.Quota.Signals, window+"Used-Percent", window+"Reset-At", 100, now); ok {
+		if auth.Quota.Signals[window+"Window-Minutes"] == minutes {
+			if remaining, ok := quotaRemainingFromUsed(auth.Quota.Signals, window+"Used-Percent", window+"Reset-At", 100, now); ok {
 				return remaining, true
 			}
 		}
@@ -127,7 +161,7 @@ func codexFiveHourRemaining(auth *Auth, now time.Time) (float64, bool) {
 	return 0, false
 }
 
-func fiveHourFromUsed(signals map[string]string, usedKey, resetKey string, scale float64, now time.Time) (float64, bool) {
+func quotaRemainingFromUsed(signals map[string]string, usedKey, resetKey string, scale float64, now time.Time) (float64, bool) {
 	reset, errReset := strconv.ParseInt(signals[resetKey], 10, 64)
 	used, errUsed := strconv.ParseFloat(signals[usedKey], 64)
 	if errReset != nil || !time.Unix(reset, 0).After(now) || errUsed != nil || !(0 <= used && used <= scale) {
